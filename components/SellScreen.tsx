@@ -337,6 +337,8 @@ export function OrderTotals({ cart, byId, label = "Total" }: { cart: Cart; byId:
 
 // ---------- Checkout ----------
 
+type Mode = "paid" | "open";
+
 function Checkout({
   cart,
   setCart,
@@ -352,138 +354,178 @@ function Checkout({
   onClose: () => void;
   onDone: (t: Toast) => void;
 }) {
+  const [mode, setMode] = useState<Mode>("paid");
+  const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [customer, setCustomer] = useState("");
   const [tabId, setTabId] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [, start] = useTransition();
+  const [pending, start] = useTransition();
 
   const lines = cartLines(cart, byId);
   const total = toNum(lines.reduce((s, l) => s + l.each * l.qty, 0));
   const chosenTab = openTabs.find((t) => t.id === tabId) ?? null;
   const name = customer.trim();
+  const payLabel = PAYMENT_METHODS.find((m) => m.key === payment)?.label ?? "";
 
   useEffect(() => {
     if (lines.length === 0) onClose();
   }, [lines.length, onClose]);
 
-  function pay(method: PaymentMethod) {
+  function submit() {
     setError("");
-    setBusy(method);
     start(async () => {
-      const res = await createSale({ items: cartPayload(lines), mode: "paid", payment_method: method });
-      setBusy(null);
-      if (!res.ok) return setError(res.error);
-      const label = PAYMENT_METHODS.find((m) => m.key === method)?.label;
-      onDone({ msg: `${label} · ${fmtMoney(total)}`, undoId: res.saleId });
-    });
-  }
-
-  function toTab() {
-    setError("");
-    setBusy("tab");
-    start(async () => {
-      if (chosenTab) {
-        const res = await addToTab(chosenTab.id, cartPayload(lines));
-        setBusy(null);
+      if (mode === "paid") {
+        const res = await createSale({ items: cartPayload(lines), mode: "paid", payment_method: payment, note });
         if (!res.ok) return setError(res.error);
-        onDone({ msg: `Added to ${chosenTab.customer_name}` });
+        onDone({ msg: `Paid · ${payLabel} · ${fmtMoney(total)}`, undoId: res.saleId });
+      } else if (chosenTab) {
+        const res = await addToTab(chosenTab.id, cartPayload(lines));
+        if (!res.ok) return setError(res.error);
+        onDone({ msg: `Added ${fmtMoney(total)} to ${chosenTab.customer_name}` });
       } else {
         const res = await createSale({ items: cartPayload(lines), mode: "open", customer_name: name, note });
-        setBusy(null);
         if (!res.ok) return setError(res.error);
-        onDone({ msg: `Tab opened · ${name}`, undoId: res.saleId });
+        onDone({ msg: `Tab opened for ${name}`, undoId: res.saleId });
       }
     });
   }
 
-  const locked = busy !== null;
+  const ready = mode === "paid" || !!chosenTab || name.length > 0;
+  const buttonText = pending
+    ? "Saving..."
+    : mode === "paid"
+      ? `Paid ${fmtMoney(total)} · ${payLabel}`
+      : chosenTab
+        ? `Add ${fmtMoney(total)} to ${chosenTab.customer_name}'s tab`
+        : name
+          ? `Open tab for ${name} · ${fmtMoney(total)}`
+          : "Pick a tab or type a name";
 
   return (
-    <Sheet onClose={onClose} locked={locked}>
+    <Sheet onClose={onClose} locked={pending}>
       <div className="mb-1 flex items-center justify-between">
-        <h2 className="text-base font-bold">Order</h2>
-        <button className="text-[13px] font-medium text-muted" onClick={() => setCart({})} disabled={locked}>
+        <h2 className="text-base font-bold">Checkout</h2>
+        <button className="text-[13px] font-medium text-muted" onClick={() => setCart({})} disabled={pending}>
           Clear
         </button>
       </div>
 
       <OrderLines cart={cart} setCart={setCart} byId={byId} />
-      <OrderTotals cart={cart} byId={byId} />
+      <OrderTotals cart={cart} byId={byId} label={mode === "paid" ? "Total" : "Owed"} />
 
-      {error && <p className="mt-2 rounded-lg bg-bad/15 px-3 py-2 text-[13px] text-bad">{error}</p>}
-
-      <span className="label mt-3">Paid with</span>
-      <div className="grid grid-cols-2 gap-2">
-        {PAYMENT_METHODS.map((m) => (
+      {/* Pay now / Tab switch */}
+      <div className="mt-3 mb-3 grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1">
+        {(["paid", "open"] as const).map((m) => (
           <button
-            key={m.key}
-            onClick={() => pay(m.key)}
-            disabled={locked}
-            className={`btn py-3 text-[15px] ${m.key === "cash" ? "bg-gold text-gold-ink" : "border border-line bg-surface-2 text-ink"}`}
+            key={m}
+            onClick={() => {
+              setMode(m);
+              setError("");
+            }}
+            className={`rounded-lg py-2.5 text-sm font-semibold transition ${
+              mode === m ? (m === "paid" ? "bg-gold text-gold-ink" : "bg-warn text-black") : "text-muted"
+            }`}
           >
-            {busy === m.key ? "Saving..." : m.label}
+            {m === "paid" ? "Pay now" : "Tab · pay later"}
           </button>
         ))}
       </div>
 
-      <div className="my-3 flex items-center gap-2 text-[11px] font-semibold tracking-wider text-muted uppercase">
-        <span className="h-px flex-1 bg-line" />
-        or put on a tab
-        <span className="h-px flex-1 bg-line" />
-      </div>
-
-      {openTabs.length > 0 && (
-        <div className="no-scrollbar -mx-4 mb-2 flex gap-1.5 overflow-x-auto px-4">
-          {openTabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => {
-                setTabId(tabId === t.id ? null : t.id);
-                setCustomer("");
-              }}
-              className={tabId === t.id ? "chip-on" : "chip"}
-            >
-              {t.customer_name} <span className="tabular font-medium opacity-70">{fmtMoney(t.total)}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      {!chosenTab && (
-        <div className="mb-2 grid grid-cols-5 gap-1.5">
+      {mode === "paid" ? (
+        <>
+          <span className="label">Payment</span>
+          <div className="mb-2 grid grid-cols-4 gap-1.5">
+            {PAYMENT_METHODS.map((m) => (
+              <button
+                key={m.key}
+                onClick={() => setPayment(m.key)}
+                className={`btn px-1 py-2.5 text-[13px] ${
+                  payment === m.key ? "bg-gold text-gold-ink" : "border border-line bg-surface-2 text-ink"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
           <input
-            className="field col-span-3"
-            placeholder="New tab name"
-            value={customer}
-            onChange={(e) => setCustomer(e.target.value)}
-            maxLength={60}
-            autoCapitalize="words"
-          />
-          <input
-            className="field col-span-2"
-            placeholder="Table / note"
+            className="field mb-3"
+            placeholder="Note (table, name...) optional"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength={200}
           />
-        </div>
+        </>
+      ) : (
+        <>
+          {openTabs.length > 0 && (
+            <>
+              <span className="label">Add to an open tab</span>
+              <div className="mb-2.5 flex flex-wrap gap-1.5">
+                {openTabs.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setTabId(tabId === t.id ? null : t.id);
+                      setCustomer("");
+                    }}
+                    className={tabId === t.id ? "chip-on" : "chip"}
+                  >
+                    {t.customer_name} <span className="tabular font-medium opacity-70">{fmtMoney(t.total)}</span>
+                  </button>
+                ))}
+              </div>
+              <span className="label">Or start a new tab</span>
+            </>
+          )}
+          <input
+            className="field mb-2"
+            placeholder="Customer name"
+            value={customer}
+            onChange={(e) => {
+              setCustomer(e.target.value);
+              setTabId(null);
+            }}
+            maxLength={60}
+            autoCapitalize="words"
+          />
+          {chosenTab ? (
+            <p className="mb-3 text-[13px] text-muted">
+              {chosenTab.customer_name}&apos;s tab goes from {fmtMoney(chosenTab.total)} to{" "}
+              <span className="tabular font-semibold text-ink">{fmtMoney(chosenTab.total + total)}</span>.
+            </p>
+          ) : (
+            <input
+              className="field mb-3"
+              placeholder="Table / phone (optional)"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={200}
+            />
+          )}
+        </>
       )}
-      <button
-        onClick={toTab}
-        disabled={locked || (!chosenTab && !name)}
-        className={`btn mb-2 w-full py-3 text-[15px] ${
-          chosenTab || name ? "bg-warn text-black" : "border border-line bg-surface-2 text-muted"
-        }`}
-      >
-        {busy === "tab"
-          ? "Saving..."
-          : chosenTab
-            ? `Add ${fmtMoney(total)} to ${chosenTab.customer_name}'s tab`
-            : name
-              ? `Open tab for ${name} · ${fmtMoney(total)}`
-              : "Pick a tab or type a name"}
-      </button>
+
+      {error && <p className="mb-2 rounded-lg bg-bad/15 px-3 py-2 text-[13px] text-bad">{error}</p>}
+
+      <div className="mb-2 grid grid-cols-[1fr_2.6fr] gap-2">
+        <button className="btn-ghost py-3" onClick={onClose} disabled={pending}>
+          Back
+        </button>
+        <button
+          onClick={submit}
+          disabled={pending || !ready}
+          className={`btn py-3 text-[15px] ${
+            !ready
+              ? "border border-line bg-surface-2 text-muted"
+              : mode === "paid"
+                ? "bg-gold text-gold-ink"
+                : "bg-warn text-black"
+          }`}
+        >
+          {buttonText}
+        </button>
+      </div>
     </Sheet>
   );
 }

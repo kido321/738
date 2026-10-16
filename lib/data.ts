@@ -4,11 +4,11 @@ import { addDays, toNum } from "./format";
 import type { DayAudit, Product, Sale, Staff, StockMovement } from "./types";
 
 const SALE_SELECT =
-  "id, staff_id, business_date, status, payment_method, customer_name, paid_at, paid_by, paid_date, subtotal, tip, total, note, voided, voided_by, voided_at, created_at, sale_items(product_id, name, category, unit_price, list_price, qty, line_total)";
+  "id, staff_id, business_date, status, payment_method, customer_name, paid_at, paid_by, paid_date, subtotal, tip, total, note, voided, voided_by, voided_at, created_at, sale_items(id, created_at, product_id, name, category, unit_price, list_price, qty, line_total)";
 
 // Turn "column does not exist" into a clear next step.
 function fail(message: string): never {
-  if (/does not exist|schema cache/i.test(message) && /status|customer_name|paid_|list_price/i.test(message)) {
+  if (/does not exist|schema cache/i.test(message) && /status|customer_name|paid_|list_price|created_at/i.test(message)) {
     throw new Error("The database needs an update. Run supabase/update.sql in the Supabase SQL Editor.");
   }
   throw new Error(message);
@@ -65,6 +65,16 @@ export async function getOpenTabs(): Promise<Sale[]> {
     .order("created_at", { ascending: true });
   if (error) fail(error.message);
   return ((data ?? []) as unknown as Sale[]).map(cleanSale);
+}
+
+export async function getTab(id: string): Promise<Sale | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const { data, error } = await db().from("sales").select(SALE_SELECT).eq("id", id).maybeSingle();
+  if (error) fail(error.message);
+  if (!data) return null;
+  const sale = cleanSale(data as unknown as Sale);
+  sale.sale_items.sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""));
+  return sale;
 }
 
 export async function getOpenTabCount(): Promise<number> {

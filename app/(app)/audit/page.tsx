@@ -200,7 +200,11 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                           <span className="ml-1 rounded-md bg-bad/20 px-1.5 py-0.5 text-[11px] font-medium text-bad">VOID</span>
                         )}
                       </div>
-                      {sale.customer_name && <div className="text-sm font-medium text-ink/90">{sale.customer_name}</div>}
+                      {sale.customer_name && (
+                        <Link href={`/tabs/${sale.id}`} className="text-sm font-medium text-ink/90 underline decoration-line underline-offset-2">
+                          {sale.customer_name}
+                        </Link>
+                      )}
                       <div className="mt-0.5 text-sm text-muted">
                         {sale.sale_items
                           .map(

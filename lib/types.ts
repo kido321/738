@@ -22,6 +22,8 @@ export type Product = {
 };
 
 export type SaleItem = {
+  id?: string;
+  created_at?: string | null;
   product_id: string | null;
   name: string;
   category: string;

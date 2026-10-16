@@ -110,6 +110,30 @@ export async function payTab(input: { saleId: string; payment_method: string }):
   return { ok: true };
 }
 
+export async function removeTabItem(itemId: string): Promise<Result> {
+  const staff = await requireStaff();
+  const sb = db();
+  const { data: item } = await sb
+    .from("sale_items")
+    .select("id, sales!inner(staff_id, status, voided)")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (!item) return { ok: false, error: "Item not found." };
+  const sale = item.sales as unknown as { staff_id: string; status: string; voided: boolean };
+  if (staff.role !== "admin" && sale.staff_id !== staff.id) {
+    return { ok: false, error: "Only the person who opened this tab or an admin can remove items." };
+  }
+  const { error } = await sb.rpc("remove_tab_item", { p_item_id: itemId, p_staff_id: staff.id });
+  if (error) {
+    return {
+      ok: false,
+      error: /remove_tab_item/.test(error.message) ? "Run the newest supabase/update.sql in Supabase." : error.message,
+    };
+  }
+  refresh();
+  return { ok: true };
+}
+
 export async function voidSale(saleId: string): Promise<Result> {
   const staff = await requireStaff();
   const sb = db();

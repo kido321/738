@@ -8,8 +8,8 @@ A simple point-of-sale app for parties. Track bottles, drinks and hookah sales, 
 
 | Screen | What it does |
 | --- | --- |
-| **Sell** | Tap items to add them (tap − on a tile to remove one). Review the order, tap a price to change it, then tap **Cash**, **Cash App**, **Zelle** or **Other** to finish. Or put it on a tab with a customer name. Mis-tap? Hit **Undo**. |
-| **Tabs** | Everyone who still owes. **+ Add items** to keep a tab going, **Collect** when they pay. Tabs from past nights show in red. |
+| **Sell** | Tap items to add them (tap − on a tile to remove one). Tap **Review order**, change a price if needed, then pick **Pay now** (Cash / Cash App / Zelle / Other) or **Tab · pay later**. Mis-tap? Hit **Undo**. |
+| **Tabs** | Everyone who still owes. Tap a person to see their whole tab with the time each item was added. From there: **+ Add items**, remove one item (×), **Collect**, or void. Tabs from past nights show in red. |
 | **Stats** | Tonight, last night, 7 days, 30 days. Total sales, paid vs unpaid, discounts given, estimated profit, sales by staff, top items, low stock. |
 | **Audit** | Pick any day. Each person's paid and unpaid sales, money collected (Cash / Cash App / Zelle / Other), every sale with time. Count the cash drawer and close the day. Void a wrong sale (stock goes back). |
 | **Inventory** | Add / edit items, price, cost and photo. Restock when a delivery comes in. Admin can set a shelf count. Low stock warnings. |

@@ -207,6 +207,12 @@ create index if not exists sales_paid_date_idx on public.sales (paid_date);
 alter table public.sale_items add column if not exists list_price numeric(10,2);
 update public.sale_items set list_price = unit_price where list_price is null;
 
+-- When each item was added (tabs can grow during the night)
+alter table public.sale_items add column if not exists created_at timestamptz;
+update public.sale_items si set created_at = s.created_at
+from public.sales s where s.id = si.sale_id and si.created_at is null;
+alter table public.sale_items alter column created_at set default now();
+
 -- ---------- Functions ----------
 drop function if exists public.create_sale(uuid, date, text, numeric, text, jsonb);
 
@@ -372,6 +378,48 @@ begin
 end;
 $$;
 
+-- Take one item line off an open tab (mistake). Stock goes back.
+-- If nothing is left, the tab is voided.
+create or replace function public.remove_tab_item(p_item_id uuid, p_staff_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_item public.sale_items%rowtype;
+  v_track boolean;
+begin
+  select si.* into v_item from public.sale_items si
+  join public.sales s on s.id = si.sale_id
+  where si.id = p_item_id and s.status = 'open' and not s.voided
+  for update of si;
+  if not found then
+    raise exception 'That item is not on an open tab';
+  end if;
+
+  delete from public.sale_items where id = p_item_id;
+
+  select track_stock into v_track from public.products where id = v_item.product_id;
+  if coalesce(v_track, false) then
+    update public.products set stock = stock + v_item.qty where id = v_item.product_id;
+    insert into public.stock_movements (product_id, staff_id, change, reason, note)
+    values (v_item.product_id, p_staff_id, v_item.qty, 'void', v_item.sale_id::text);
+  end if;
+
+  update public.sales
+  set subtotal = subtotal - v_item.line_total, total = total - v_item.line_total
+  where id = v_item.sale_id;
+
+  if not exists (select 1 from public.sale_items where sale_id = v_item.sale_id) then
+    update public.sales set voided = true, voided_by = p_staff_id, voided_at = now()
+    where id = v_item.sale_id;
+  end if;
+end;
+$$;
+
+revoke execute on function public.remove_tab_item(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.remove_tab_item(uuid, uuid) to service_role;
 revoke execute on function public.add_sale_items(uuid, uuid, jsonb) from public, anon, authenticated;
 revoke execute on function public.create_sale(uuid, date, text, text, numeric, text, text, jsonb) from public, anon, authenticated;
 revoke execute on function public.add_to_tab(uuid, uuid, jsonb) from public, anon, authenticated;

@@ -1,87 +1,34 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { addToTab, payTab, voidSale } from "@/app/actions";
+import { useRouter } from "next/navigation";
+import { addToTab, payTab, removeTabItem, voidSale } from "@/app/actions";
 import { PAYMENT_METHODS, type PaymentMethod } from "@/lib/config";
-import { fmtMoney, fmtTime, toNum } from "@/lib/format";
+import { fmtMoney, toNum } from "@/lib/format";
 import type { Product, Sale } from "@/lib/types";
 import { Sheet } from "@/components/ui";
 import { OrderLines, OrderTotals, cartLines, cartPayload, type Cart } from "@/components/SellScreen";
 
-export function TabCard({
-  tab,
-  products,
-  takenBy,
-  dayLabel,
-  pastNight,
-  canVoid,
-}: {
-  tab: Sale;
-  products: Product[];
-  takenBy: string;
-  dayLabel: string;
-  pastNight: boolean;
-  canVoid: boolean;
-}) {
+// Buttons at the bottom of a tab page: void, add items, collect.
+export function TabActions({ tab, products, canVoid }: { tab: Sale; products: Product[]; canVoid: boolean }) {
+  const router = useRouter();
   const [sheet, setSheet] = useState<"pay" | "add" | null>(null);
-  const [expanded, setExpanded] = useState(false);
   const [pending, start] = useTransition();
 
-  // Group repeated items (a tab can get the same bottle added more than once)
-  const items = new Map<string, { name: string; qty: number; total: number; custom: boolean }>();
-  for (const i of tab.sale_items) {
-    const key = `${i.name}|${i.unit_price}`;
-    const cur = items.get(key) ?? { name: i.name, qty: 0, total: 0, custom: false };
-    cur.qty += i.qty;
-    cur.total = toNum(cur.total + i.line_total);
-    cur.custom = cur.custom || (i.list_price != null && i.list_price !== i.unit_price);
-    items.set(key, cur);
-  }
-  const list = [...items.values()];
-  const shown = expanded ? list : list.slice(0, 3);
-
   return (
-    <div className={`card ${pastNight ? "border-bad/40" : ""}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="truncate text-[15px] font-bold">{tab.customer_name || "No name"}</div>
-          <div className="truncate text-[11.5px] text-muted">
-            <span className={pastNight ? "font-semibold text-bad" : ""}>{dayLabel}</span> · {fmtTime(tab.created_at)} ·{" "}
-            {takenBy}
-            {tab.note ? ` · ${tab.note}` : ""}
-          </div>
-        </div>
-        <div className="tabular shrink-0 text-lg font-bold tracking-tight text-warn">{fmtMoney(tab.total)}</div>
-      </div>
-
-      <ul className="tabular mt-2 space-y-0.5 text-[13px]">
-        {shown.map((i) => (
-          <li key={`${i.name}-${i.total}`} className="flex justify-between gap-2 text-ink/80">
-            <span className="truncate">
-              <span className="text-muted">{i.qty}×</span> {i.name}
-              {i.custom && <span className="ml-1 text-[11px] text-gold">custom</span>}
-            </span>
-            <span className="shrink-0">{fmtMoney(i.total)}</span>
-          </li>
-        ))}
-      </ul>
-      {list.length > 3 && (
-        <button className="mt-0.5 text-[12px] font-medium text-muted" onClick={() => setExpanded(!expanded)}>
-          {expanded ? "Show less" : `+${list.length - 3} more`}
-        </button>
-      )}
-
-      <div className="mt-2.5 grid grid-cols-[auto_1fr_1.4fr] gap-1.5">
+    <>
+      <div className="grid grid-cols-[auto_1fr_1.3fr] gap-2">
         {canVoid ? (
           <button
-            className="btn-ghost px-3 text-bad"
+            className="btn-ghost px-3 py-3 text-bad"
             disabled={pending}
             aria-label="Void tab"
             onClick={() => {
-              if (!confirm(`Void ${tab.customer_name ?? "this"}'s tab? Stock goes back.`)) return;
+              if (!confirm(`Void ${tab.customer_name ?? "this"}'s whole tab? Stock goes back.`)) return;
               start(async () => {
                 const res = await voidSale(tab.id);
-                if (!res.ok) alert(res.error);
+                if (!res.ok) return alert(res.error);
+                router.push("/tabs");
               });
             }}
           >
@@ -92,21 +39,56 @@ export function TabCard({
         ) : (
           <span />
         )}
-        <button className="btn-ghost" onClick={() => setSheet("add")} disabled={pending}>
+        <button className="btn-ghost py-3 text-[15px]" onClick={() => setSheet("add")} disabled={pending}>
           + Add items
         </button>
-        <button className="btn-gold" onClick={() => setSheet("pay")} disabled={pending}>
-          Collect
+        <button className="btn-gold py-3 text-[15px]" onClick={() => setSheet("pay")} disabled={pending}>
+          Collect {fmtMoney(tab.total)}
         </button>
       </div>
 
-      {sheet === "pay" && <PaySheet tab={tab} onClose={() => setSheet(null)} />}
+      {sheet === "pay" && (
+        <PaySheet
+          tab={tab}
+          onClose={() => setSheet(null)}
+          onPaid={() => {
+            setSheet(null);
+            router.push("/tabs");
+          }}
+        />
+      )}
       {sheet === "add" && <AddSheet tab={tab} products={products} onClose={() => setSheet(null)} />}
-    </div>
+    </>
   );
 }
 
-function PaySheet({ tab, onClose }: { tab: Sale; onClose: () => void }) {
+export function RemoveItemButton({ itemId, label }: { itemId: string; label: string }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  return (
+    <button
+      aria-label={`Remove ${label}`}
+      disabled={pending}
+      className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted active:bg-surface-2 disabled:opacity-40"
+      onClick={() => {
+        if (!confirm(`Remove ${label} from this tab? Stock goes back.`)) return;
+        start(async () => {
+          const res = await removeTabItem(itemId);
+          if (!res.ok) return alert(res.error);
+          router.refresh();
+        });
+      }}
+    >
+      {pending ? "…" : (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+function PaySheet({ tab, onClose, onPaid }: { tab: Sale; onClose: () => void; onPaid: () => void }) {
   const [busy, setBusy] = useState<PaymentMethod | null>(null);
   const [error, setError] = useState("");
   const [, start] = useTransition();
@@ -118,7 +100,7 @@ function PaySheet({ tab, onClose }: { tab: Sale; onClose: () => void }) {
       const res = await payTab({ saleId: tab.id, payment_method: method });
       setBusy(null);
       if (!res.ok) return setError(res.error);
-      onClose();
+      onPaid();
     });
   }
 
