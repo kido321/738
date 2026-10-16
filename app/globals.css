@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0b0b10;
+  --color-surface: #15151d;
+  --color-surface-2: #1e1e29;
+  --color-line: #2a2a38;
+  --color-ink: #f2f0ea;
+  --color-muted: #9a98a6;
+  --color-gold: #f2b544;
+  --color-gold-ink: #1a1306;
+  --color-good: #4ade80;
+  --color-bad: #f87171;
+  --color-warn: #fbbf24;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+html {
+  background: var(--color-bg);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior-y: none;
+}
+
+/* iPhone zooms in on inputs smaller than 16px, so keep them at 16px. */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top), 0.75rem);
+}
+
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+/* Space so content is not hidden behind the bottom nav */
+.pb-nav {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
+
+@utility field {
+  @apply w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-ink outline-none placeholder:text-muted focus:border-gold;
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-semibold transition active:scale-[0.98] disabled:opacity-50;
+}
+
+@utility btn-gold {
+  @apply btn bg-gold text-gold-ink;
+}
+
+@utility btn-ghost {
+  @apply btn border border-line bg-surface-2 text-ink;
+}
+
+@utility card {
+  @apply rounded-2xl border border-line bg-surface p-4;
+}
+
+@utility label {
+  @apply mb-1 block text-xs font-medium uppercase tracking-wide text-muted;
+}
