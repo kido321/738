@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { byMethod, getAudit, getCollected, getProducts, getRecentAudits, getSales, getStaffList, summarize } from "@/lib/data";
 import { addDays, businessDate, fmtDateTime, fmtDay, fmtMoney, fmtTime, isDateString } from "@/lib/format";
-import { CATEGORIES, paymentLabel } from "@/lib/config";
+import { CATEGORIES, PAYMENT_METHODS, paymentLabel } from "@/lib/config";
 import { Empty, PageTitle, Section, Stat } from "@/components/ui";
 import { CloseDayForm, DatePicker, ReopenButton, VoidButton } from "@/components/AuditControls";
 
@@ -47,7 +47,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         </Link>
       </div>
 
-      <div className={`mb-4 rounded-2xl border p-3.5 ${closed ? "border-good/40 bg-good/10" : "border-line bg-surface"}`}>
+      <div className={`mb-4 rounded-xl border p-3 ${closed ? "border-good/40 bg-good/10" : "border-line bg-surface"}`}>
         <div className="flex items-center justify-between">
           <div>
             <div className={`font-semibold ${closed ? "text-good" : ""}`}>{closed ? "Day closed" : "Day still open"}</div>
@@ -81,25 +81,21 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         {audit?.notes && <p className="mt-2 text-sm text-ink/80">“{audit.notes}”</p>}
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-2.5">
+      <div className="mb-3 grid grid-cols-2 gap-2">
         <Stat label="Total sales" value={fmtMoney(s.revenue)} tone="gold" />
         <Stat label="Orders" value={String(s.count)} />
         <Stat label="Paid" value={fmtMoney(s.collected)} tone="good" />
         <Stat label={`Unpaid tabs (${s.openCount})`} value={fmtMoney(s.unpaid)} tone={s.unpaid ? "bad" : undefined} />
         <Stat label="Discounts" value={fmtMoney(s.discounts)} />
-        <Stat label="Tips" value={fmtMoney(s.tips)} />
+        <Stat label="Voided" value={String(s.voidedCount)} tone={s.voidedCount ? "bad" : undefined} />
       </div>
 
       <Section title="Money collected this day">
-        <div className="tabular grid grid-cols-3 gap-2 text-center">
-          {[
-            ["Cash", collected.cash],
-            ["Card", collected.card],
-            ["Other", collected.other],
-          ].map(([label, v]) => (
-            <div key={label as string} className="rounded-xl bg-surface-2 p-2.5">
-              <div className="text-xs text-muted">{label}</div>
-              <div className="font-bold">{fmtMoney(v as number)}</div>
+        <div className="tabular grid grid-cols-4 gap-1.5 text-center">
+          {[...PAYMENT_METHODS.map((m) => m.key as string), ...(collected.totals.card ? ["card"] : [])].map((key) => (
+            <div key={key} className="rounded-lg bg-surface-2 px-1 py-2">
+              <div className="text-[11px] text-muted">{paymentLabel(key)}</div>
+              <div className="text-sm font-semibold">{fmtMoney(collected.totals[key] ?? 0)}</div>
             </div>
           ))}
         </div>
@@ -224,7 +220,6 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                     </div>
                     <div className="shrink-0 text-right">
                       <div className={`tabular font-bold ${sale.voided ? "line-through" : ""}`}>{fmtMoney(sale.total)}</div>
-                      {sale.tip > 0 && <div className="tabular text-[11px] text-muted">tip {fmtMoney(sale.tip)}</div>}
                       {canVoid && (
                         <div className="mt-1">
                           <VoidButton saleId={sale.id} />

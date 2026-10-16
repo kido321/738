@@ -176,7 +176,7 @@ insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true)
 on conflict (id) do nothing;
 
--- ================= Tabs + custom prices =================
+-- ================= Tabs, custom prices, payments =================
 
 -- ---------- Sales: open tabs ----------
 alter table public.sales add column if not exists status text not null default 'paid';
@@ -189,6 +189,11 @@ alter table public.sales alter column payment_method drop not null;
 do $$ begin
   alter table public.sales add constraint sales_status_check check (status in ('paid', 'open'));
 exception when duplicate_object then null; end $$;
+
+-- Payment types: Cash, Cash App, Zelle, Other ('card' kept for old sales)
+alter table public.sales drop constraint if exists sales_payment_method_check;
+alter table public.sales add constraint sales_payment_method_check
+  check (payment_method in ('cash', 'cashapp', 'zelle', 'card', 'other'));
 
 -- Old sales were all paid on the spot
 update public.sales
@@ -347,7 +352,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if p_payment_method not in ('cash', 'card', 'other') then
+  if p_payment_method not in ('cash', 'cashapp', 'zelle', 'other') then
     raise exception 'Pick a payment method';
   end if;
 

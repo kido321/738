@@ -17,22 +17,19 @@ export default async function SellPage() {
 
   return (
     <>
-      <div className="mb-4 grid grid-cols-2 gap-2.5">
-        <div className="rounded-2xl border border-line bg-surface px-4 py-3">
-          <div className="text-xs uppercase tracking-wide text-muted">My sales tonight</div>
-          <div className="tabular text-xl font-bold">{fmtMoney(myTotal)}</div>
-          <div className="text-xs text-muted">{mySales.length} orders</div>
+      <div className="mb-3 grid grid-cols-2 overflow-hidden rounded-xl border border-line bg-surface">
+        <div className="px-3 py-2">
+          <div className="text-[11px] font-medium text-muted">My sales tonight</div>
+          <div className="tabular text-base leading-tight font-bold">
+            {fmtMoney(myTotal)} <span className="text-[11px] font-medium text-muted">· {mySales.length}</span>
+          </div>
         </div>
-        <Link
-          href="/tabs"
-          className={`rounded-2xl border px-4 py-3 ${
-            openTabs.length ? "border-warn/40 bg-warn/10" : "border-line bg-surface"
-          }`}
-        >
-          <div className="text-xs uppercase tracking-wide text-muted">Open tabs</div>
-          <div className={`tabular text-xl font-bold ${openTabs.length ? "text-warn" : ""}`}>{fmtMoney(owed)}</div>
-          <div className="text-xs text-muted">
-            {openTabs.length} unpaid {openTabs.length ? "→" : ""}
+        <Link href="/tabs" className="border-l border-line px-3 py-2 active:bg-surface-2">
+          <div className="flex items-center justify-between text-[11px] font-medium text-muted">
+            Open tabs <span aria-hidden>›</span>
+          </div>
+          <div className={`tabular text-base leading-tight font-bold ${openTabs.length ? "text-warn" : ""}`}>
+            {fmtMoney(owed)} <span className="text-[11px] font-medium text-muted">· {openTabs.length}</span>
           </div>
         </Link>
       </div>

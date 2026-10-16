@@ -11,7 +11,8 @@ export type Category = (typeof CATEGORIES)[number]["key"];
 
 export const PAYMENT_METHODS = [
   { key: "cash", label: "Cash" },
-  { key: "card", label: "Card" },
+  { key: "cashapp", label: "Cash App" },
+  { key: "zelle", label: "Zelle" },
   { key: "other", label: "Other" },
 ] as const;
 
@@ -22,5 +23,6 @@ export function categoryLabel(key: string) {
 }
 
 export function paymentLabel(key: string) {
+  if (key === "card") return "Card"; // older sales
   return PAYMENT_METHODS.find((p) => p.key === key)?.label ?? key;
 }

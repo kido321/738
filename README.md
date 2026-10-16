@@ -8,10 +8,10 @@ A simple point-of-sale app for parties. Track bottles, drinks and hookah sales, 
 
 | Screen | What it does |
 | --- | --- |
-| **Sell** | Tap items to add them. At checkout, tap a price to change it for that customer. Then pick **Pay now** (cash / card / other + tip) or **Tab · pay later** (customer name). You can add more to an open tab. |
-| **Tabs** | Everyone who still owes money. Tap **Collect** when they pay. Tabs from past nights show in red. |
-| **Stats** | Tonight, last night, 7 days, 30 days. Total sales, paid vs unpaid, discounts given, tips, estimated profit, sales by staff, top items, low stock. |
-| **Audit** | Pick any day. Each person's paid and unpaid sales, money collected (cash / card / other), every sale with time. Count the cash drawer and close the day. Void a wrong sale (stock goes back). |
+| **Sell** | Tap items to add them (tap − on a tile to remove one). Review the order, tap a price to change it, then tap **Cash**, **Cash App**, **Zelle** or **Other** to finish. Or put it on a tab with a customer name. Mis-tap? Hit **Undo**. |
+| **Tabs** | Everyone who still owes. **+ Add items** to keep a tab going, **Collect** when they pay. Tabs from past nights show in red. |
+| **Stats** | Tonight, last night, 7 days, 30 days. Total sales, paid vs unpaid, discounts given, estimated profit, sales by staff, top items, low stock. |
+| **Audit** | Pick any day. Each person's paid and unpaid sales, money collected (Cash / Cash App / Zelle / Other), every sale with time. Count the cash drawer and close the day. Void a wrong sale (stock goes back). |
 | **Inventory** | Add / edit items, price, cost and photo. Restock when a delivery comes in. Admin can set a shelf count. Low stock warnings. |
 | **Staff** | Everyone's sales tonight and this week. Admin adds people by email, makes admins, or turns people off. |
 
@@ -32,7 +32,7 @@ A simple point-of-sale app for parties. Track bottles, drinks and hookah sales, 
 1. Go to [supabase.com](https://supabase.com) and create a new project (or use one you have).
 2. Open **SQL Editor → New query**, paste everything in `supabase/schema.sql`, and click **Run**.
 3. Run `supabase/738-menu.sql` to add the 738 menu.
-   - Already set up before tabs existed? Run `supabase/update-tabs.sql` once. It is safe to run again.
+   - Already set up? Run the newest `supabase/update.sql` after each app update. It is safe to run again.
 4. Go to **Project Settings → API Keys** and copy the **Secret key** (`sb_secret_...`). Also copy your **Project URL**.
 
 ### 2. Clerk

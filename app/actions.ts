@@ -38,8 +38,12 @@ function cleanItems(items: CartItem[] | undefined) {
 }
 
 function dbError(message: string) {
-  if (/create_sale|add_to_tab|pay_tab|status|customer_name|list_price/i.test(message) && /function|column|does not exist|schema cache/i.test(message)) {
-    return "The database needs the tabs update. Run supabase/update-tabs.sql in Supabase.";
+  if (
+    /payment_method_check/i.test(message) ||
+    (/create_sale|add_to_tab|pay_tab|status|customer_name|list_price/i.test(message) &&
+      /function|column|does not exist|schema cache/i.test(message))
+  ) {
+    return "The database needs an update. Run supabase/update.sql in the Supabase SQL Editor.";
   }
   return message;
 }
@@ -48,7 +52,6 @@ export async function createSale(input: {
   items: CartItem[];
   mode: "paid" | "open";
   payment_method?: string | null;
-  tip?: number;
   customer_name?: string;
   note?: string;
 }): Promise<Result<{ saleId: string }>> {
@@ -69,7 +72,7 @@ export async function createSale(input: {
     p_business_date: businessDate(),
     p_status: paid ? "paid" : "open",
     p_payment_method: paid ? input.payment_method : null,
-    p_tip: paid ? Math.max(0, toNum(input.tip ?? 0)) : 0,
+    p_tip: 0,
     p_customer_name: customer || null,
     p_note: (input.note ?? "").slice(0, 200),
     p_items: items,
@@ -90,7 +93,7 @@ export async function addToTab(saleId: string, rawItems: CartItem[]): Promise<Re
   return { ok: true };
 }
 
-export async function payTab(input: { saleId: string; payment_method: string; tip: number }): Promise<Result> {
+export async function payTab(input: { saleId: string; payment_method: string }): Promise<Result> {
   const staff = await requireStaff();
   if (!PAYMENT_METHODS.some((p) => p.key === input.payment_method)) {
     return { ok: false, error: "Pick a payment method." };
@@ -99,7 +102,7 @@ export async function payTab(input: { saleId: string; payment_method: string; ti
     p_sale_id: input.saleId,
     p_staff_id: staff.id,
     p_payment_method: input.payment_method,
-    p_tip: Math.max(0, toNum(input.tip)),
+    p_tip: 0,
     p_paid_date: businessDate(),
   });
   if (error) return { ok: false, error: dbError(error.message) };

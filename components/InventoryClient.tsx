@@ -43,7 +43,7 @@ export function InventoryClient({ products, isAdmin }: { products: Product[]; is
         const items = list.filter((p) => p.category === c.key);
         if (items.length === 0) return null;
         return (
-          <section key={c.key} className="card mb-4 py-2">
+          <section key={c.key} className="card mb-3 py-2">
             <h2 className="pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-gold">{c.label}</h2>
             <ul className="divide-y divide-line">
               {items.map((p) => {
@@ -88,18 +88,18 @@ export function InventoryClient({ products, isAdmin }: { products: Product[]; is
         );
       })}
       {list.length === 0 && (
-        <p className="card mb-4 text-sm text-muted">
+        <p className="card mb-3 text-sm text-muted">
           {filter === "low" ? "Nothing is low. Nice." : filter === "off" ? "No items turned off." : "No items yet. Tap + Add item."}
         </p>
       )}
 
       {sheet && (
-        <div className="fixed inset-0 z-40 flex items-end bg-black/60" onClick={() => setSheet(null)}>
+        <div className="fixed inset-0 z-40 flex items-end bg-black/70" onClick={() => setSheet(null)}>
           <div
-            className="pb-safe mx-auto max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border-t border-line bg-surface px-4 pt-3"
+            className="pb-safe mx-auto max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-2xl border-t border-line bg-surface px-4 pt-3"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-line" />
+            <div className="mx-auto mb-2 h-1 w-9 rounded-full bg-surface-3" />
             {sheet.kind === "edit" ? (
               <ProductForm product={sheet.product} onDone={() => setSheet(null)} />
             ) : (

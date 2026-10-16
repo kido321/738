@@ -15,7 +15,7 @@ const tabs = [
 export function BottomNav({ openTabs = 0 }: { openTabs?: number }) {
   const path = usePathname();
   return (
-    <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 backdrop-blur">
+    <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line/70 bg-bg/85 backdrop-blur-xl">
       <ul className="mx-auto grid max-w-2xl grid-cols-6">
         {tabs.map((t) => {
           const active = t.href === "/" ? path === "/" : path.startsWith(t.href);
@@ -24,14 +24,17 @@ export function BottomNav({ openTabs = 0 }: { openTabs?: number }) {
             <li key={t.href}>
               <Link
                 href={t.href}
-                className={`relative flex flex-col items-center gap-0.5 pt-2 pb-1 text-[10px] font-medium ${
+                prefetch
+                className={`relative flex flex-col items-center gap-0.5 pt-1.5 pb-0.5 text-[10px] font-semibold tracking-wide ${
                   active ? "text-gold" : "text-muted"
                 }`}
               >
-                <Icon />
+                <span className={`grid h-7 w-11 place-items-center rounded-full ${active ? "bg-gold/12" : ""}`}>
+                  <Icon />
+                </span>
                 {t.label}
                 {t.href === "/tabs" && openTabs > 0 && (
-                  <span className="absolute top-1 left-1/2 ml-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-warn px-1 text-[10px] font-bold text-black">
+                  <span className="absolute top-0.5 left-1/2 ml-2 grid h-4 min-w-4 place-items-center rounded-full bg-warn px-1 text-[10px] font-bold text-black ring-2 ring-bg">
                     {openTabs}
                   </span>
                 )}
@@ -45,8 +48,8 @@ export function BottomNav({ openTabs = 0 }: { openTabs?: number }) {
 }
 
 const svg = {
-  width: 24,
-  height: 24,
+  width: 21,
+  height: 21,
   viewBox: "0 0 24 24",
   fill: "none",
   stroke: "currentColor",

@@ -18,7 +18,7 @@ export default async function InventoryPage() {
     <>
       <PageTitle title="Inventory" sub={`${products.filter((p) => p.active).length} items on the menu`} />
 
-      <div className="mb-4 grid grid-cols-3 gap-2.5">
+      <div className="mb-3 grid grid-cols-3 gap-2">
         <Stat label="Tracked" value={String(tracked.length)} />
         <Stat label="Low" value={String(low.length)} tone={low.length ? "bad" : "good"} />
         <Stat label="Stock cost" value={fmtMoney(stockValue)} />

@@ -9,7 +9,7 @@ const SALE_SELECT =
 // Turn "column does not exist" into a clear next step.
 function fail(message: string): never {
   if (/does not exist|schema cache/i.test(message) && /status|customer_name|paid_|list_price/i.test(message)) {
-    throw new Error("The database needs the tabs update. Run supabase/update-tabs.sql in the Supabase SQL Editor.");
+    throw new Error("The database needs an update. Run supabase/update.sql in the Supabase SQL Editor.");
   }
   throw new Error(message);
 }
@@ -90,22 +90,14 @@ export async function getCollected(date: string): Promise<Sale[]> {
 }
 
 export function byMethod(sales: Sale[]) {
-  const out = { cash: 0, card: 0, other: 0, tips: 0, count: sales.length, total: 0 };
+  const totals: Record<string, number> = {};
+  let total = 0;
   for (const s of sales) {
-    if (s.payment_method === "cash") out.cash += s.total;
-    else if (s.payment_method === "card") out.card += s.total;
-    else out.other += s.total;
-    out.tips += s.tip;
-    out.total += s.total;
+    const key = s.payment_method ?? "other";
+    totals[key] = toNum((totals[key] ?? 0) + s.total);
+    total += s.total;
   }
-  return {
-    ...out,
-    cash: toNum(out.cash),
-    card: toNum(out.card),
-    other: toNum(out.other),
-    tips: toNum(out.tips),
-    total: toNum(out.total),
-  };
+  return { totals, count: sales.length, total: toNum(total), cash: totals.cash ?? 0 };
 }
 
 export async function getProducts(opts: { activeOnly?: boolean } = {}): Promise<Product[]> {

@@ -69,8 +69,8 @@ export default async function StaffPage() {
                   <div className="text-[11px] text-muted">{w?.count ?? 0} orders</div>
                 </div>
                 <div className="rounded-xl bg-surface-2 p-2">
-                  <div className="text-[11px] text-muted">7-day tips</div>
-                  <div className="font-bold">{fmtMoney(w?.tips ?? 0)}</div>
+                  <div className="text-[11px] text-muted">Unpaid tabs</div>
+                  <div className={`font-bold ${w?.unpaid ? "text-warn" : ""}`}>{fmtMoney(w?.unpaid ?? 0)}</div>
                   <div className="text-[11px] text-muted">avg {fmtMoney(w && w.count ? w.total / w.count : 0)}</div>
                 </div>
               </div>

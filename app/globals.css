@@ -1,18 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0b0b10;
-  --color-surface: #15151d;
-  --color-surface-2: #1e1e29;
-  --color-line: #2a2a38;
-  --color-ink: #f2f0ea;
-  --color-muted: #9a98a6;
-  --color-gold: #f2b544;
-  --color-gold-ink: #1a1306;
-  --color-good: #4ade80;
+  --color-bg: #09090b;
+  --color-surface: #121215;
+  --color-surface-2: #1b1b20;
+  --color-surface-3: #24242b;
+  --color-line: #26262d;
+  --color-ink: #f4f4f5;
+  --color-muted: #8e8e98;
+  --color-gold: #f5b942;
+  --color-gold-ink: #1c1405;
+  --color-good: #34d399;
   --color-bad: #f87171;
   --color-warn: #fbbf24;
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 html {
@@ -24,8 +25,11 @@ body {
   background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  font-size: 15px;
+  letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
   touch-action: manipulation;
   overscroll-behavior-y: none;
 }
@@ -37,12 +41,18 @@ textarea {
   font-size: 16px;
 }
 
+/* No text selection on tap-heavy controls */
+button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
 .pt-safe {
-  padding-top: max(env(safe-area-inset-top), 0.75rem);
+  padding-top: max(env(safe-area-inset-top), 0.5rem);
 }
 
 .pb-safe {
@@ -51,15 +61,36 @@ textarea {
 
 /* Space so content is not hidden behind the bottom nav */
 .pb-nav {
-  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0.6;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.sheet-in {
+  animation: sheet-up 0.16s ease-out;
 }
 
 @utility field {
-  @apply w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-ink outline-none placeholder:text-muted focus:border-gold;
+  @apply w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-ink outline-none placeholder:text-muted focus:border-gold/70;
 }
 
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-semibold transition active:scale-[0.98] disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition active:scale-[0.97] disabled:opacity-40;
 }
 
 @utility btn-gold {
@@ -71,9 +102,17 @@ textarea {
 }
 
 @utility card {
-  @apply rounded-2xl border border-line bg-surface p-4;
+  @apply rounded-xl border border-line bg-surface p-3.5;
 }
 
 @utility label {
-  @apply mb-1 block text-xs font-medium uppercase tracking-wide text-muted;
+  @apply mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted;
+}
+
+@utility chip {
+  @apply shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-[13px] font-semibold text-ink/90;
+}
+
+@utility chip-on {
+  @apply shrink-0 rounded-full border border-gold bg-gold px-3 py-1.5 text-[13px] font-semibold text-gold-ink;
 }

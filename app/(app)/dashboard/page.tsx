@@ -40,19 +40,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <PageTitle title="Stats" sub={multiDay ? `${fmtDay(start)} – ${fmtDay(end)}` : fmtDay(start, true)} />
       <Pills items={RANGES.map((r) => ({ ...r, href: `/dashboard?range=${r.key}` }))} active={range} />
 
-      <div className="mb-4 grid grid-cols-2 gap-2.5">
+      <div className="mb-3 grid grid-cols-2 gap-2">
         <Stat label="Total sales" value={fmtMoney(s.revenue)} tone="gold" />
         <Stat label="Orders" value={String(s.count)} />
         <Stat label="Paid" value={fmtMoney(s.collected)} tone="good" />
         <Stat label={`Unpaid tabs (${s.openCount})`} value={fmtMoney(s.unpaid)} tone={s.unpaid ? "bad" : undefined} />
         <Stat label="Avg order" value={fmtMoney(s.avg)} />
         <Stat label="Discounts given" value={fmtMoney(s.discounts)} />
-        <Stat label="Tips" value={fmtMoney(s.tips)} />
+        <Stat label="Voided" value={String(s.voidedCount)} tone={s.voidedCount ? "bad" : undefined} />
         <Stat label="Est. profit" value={fmtMoney(s.estProfit)} tone={s.estProfit >= 0 ? "good" : "bad"} />
       </div>
 
       {lowStock.length > 0 && (
-        <Link href="/inventory" className="mb-4 block rounded-2xl border border-warn/40 bg-warn/10 p-3.5">
+        <Link href="/inventory" className="mb-3 block rounded-xl border border-warn/40 bg-warn/10 p-3.5">
           <div className="mb-1 text-sm font-semibold text-warn">Low stock ({lowStock.length})</div>
           <div className="text-sm text-ink/80">
             {lowStock
