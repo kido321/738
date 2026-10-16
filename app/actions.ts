@@ -23,36 +23,88 @@ function num(form: FormData, key: string, fallback = 0) {
 
 // ---------- Sales ----------
 
+type CartItem = { product_id: string; qty: number; price?: number | null };
+
+// Clean up the cart from the phone. A price is only sent when it was changed.
+function cleanItems(items: CartItem[] | undefined) {
+  return (items ?? [])
+    .filter((i) => i.product_id && Number.isInteger(i.qty) && i.qty > 0 && i.qty < 1000)
+    .map((i) => {
+      const price = i.price == null ? null : toNum(i.price);
+      return price == null || !Number.isFinite(price)
+        ? { product_id: i.product_id, qty: i.qty }
+        : { product_id: i.product_id, qty: i.qty, price: Math.max(0, Math.min(price, 100000)) };
+    });
+}
+
+function dbError(message: string) {
+  if (/create_sale|add_to_tab|pay_tab|status|customer_name|list_price/i.test(message) && /function|column|does not exist|schema cache/i.test(message)) {
+    return "The database needs the tabs update. Run supabase/update-tabs.sql in Supabase.";
+  }
+  return message;
+}
+
 export async function createSale(input: {
-  items: { product_id: string; qty: number }[];
-  payment_method: string;
-  tip: number;
+  items: CartItem[];
+  mode: "paid" | "open";
+  payment_method?: string | null;
+  tip?: number;
+  customer_name?: string;
   note?: string;
 }): Promise<Result<{ saleId: string }>> {
   const staff = await requireStaff();
+  const paid = input.mode !== "open";
 
-  if (!PAYMENT_METHODS.some((p) => p.key === input.payment_method)) {
+  if (paid && !PAYMENT_METHODS.some((p) => p.key === input.payment_method)) {
     return { ok: false, error: "Pick a payment method." };
   }
-  const items = (input.items ?? [])
-    .filter((i) => i.product_id && Number.isInteger(i.qty) && i.qty > 0 && i.qty < 1000)
-    .map((i) => ({ product_id: i.product_id, qty: i.qty }));
-  if (items.length === 0) return { ok: false, error: "Cart is empty." };
+  const customer = (input.customer_name ?? "").trim().slice(0, 60);
+  if (!paid && !customer) return { ok: false, error: "Add a name for the tab." };
 
-  const tip = Math.max(0, toNum(input.tip));
+  const items = cleanItems(input.items);
+  if (items.length === 0) return { ok: false, error: "Cart is empty." };
 
   const { data, error } = await db().rpc("create_sale", {
     p_staff_id: staff.id,
     p_business_date: businessDate(),
-    p_payment_method: input.payment_method,
-    p_tip: tip,
+    p_status: paid ? "paid" : "open",
+    p_payment_method: paid ? input.payment_method : null,
+    p_tip: paid ? Math.max(0, toNum(input.tip ?? 0)) : 0,
+    p_customer_name: customer || null,
     p_note: (input.note ?? "").slice(0, 200),
     p_items: items,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: dbError(error.message) };
 
   refresh();
   return { ok: true, saleId: data as string };
+}
+
+export async function addToTab(saleId: string, rawItems: CartItem[]): Promise<Result> {
+  const staff = await requireStaff();
+  const items = cleanItems(rawItems);
+  if (items.length === 0) return { ok: false, error: "Cart is empty." };
+  const { error } = await db().rpc("add_to_tab", { p_sale_id: saleId, p_staff_id: staff.id, p_items: items });
+  if (error) return { ok: false, error: dbError(error.message) };
+  refresh();
+  return { ok: true };
+}
+
+export async function payTab(input: { saleId: string; payment_method: string; tip: number }): Promise<Result> {
+  const staff = await requireStaff();
+  if (!PAYMENT_METHODS.some((p) => p.key === input.payment_method)) {
+    return { ok: false, error: "Pick a payment method." };
+  }
+  const { error } = await db().rpc("pay_tab", {
+    p_sale_id: input.saleId,
+    p_staff_id: staff.id,
+    p_payment_method: input.payment_method,
+    p_tip: Math.max(0, toNum(input.tip)),
+    p_paid_date: businessDate(),
+  });
+  if (error) return { ok: false, error: dbError(error.message) };
+  refresh();
+  return { ok: true };
 }
 
 export async function voidSale(saleId: string): Promise<Result> {
@@ -92,10 +144,12 @@ export async function closeDay(form: FormData): Promise<Result> {
   const notes = text(form, "notes").slice(0, 500);
 
   const sb = db();
+  // Cash collected that day, including old tabs paid that day.
   const { data: cashSales, error } = await sb
     .from("sales")
     .select("total")
-    .eq("business_date", date)
+    .eq("paid_date", date)
+    .eq("status", "paid")
     .eq("voided", false)
     .eq("payment_method", "cash");
   if (error) return { ok: false, error: error.message };

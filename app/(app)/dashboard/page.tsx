@@ -37,16 +37,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <PageTitle title="Dashboard" sub={multiDay ? `${fmtDay(start)} – ${fmtDay(end)}` : fmtDay(start, true)} />
+      <PageTitle title="Stats" sub={multiDay ? `${fmtDay(start)} – ${fmtDay(end)}` : fmtDay(start, true)} />
       <Pills items={RANGES.map((r) => ({ ...r, href: `/dashboard?range=${r.key}` }))} active={range} />
 
       <div className="mb-4 grid grid-cols-2 gap-2.5">
         <Stat label="Total sales" value={fmtMoney(s.revenue)} tone="gold" />
         <Stat label="Orders" value={String(s.count)} />
+        <Stat label="Paid" value={fmtMoney(s.collected)} tone="good" />
+        <Stat label={`Unpaid tabs (${s.openCount})`} value={fmtMoney(s.unpaid)} tone={s.unpaid ? "bad" : undefined} />
         <Stat label="Avg order" value={fmtMoney(s.avg)} />
+        <Stat label="Discounts given" value={fmtMoney(s.discounts)} />
         <Stat label="Tips" value={fmtMoney(s.tips)} />
         <Stat label="Est. profit" value={fmtMoney(s.estProfit)} tone={s.estProfit >= 0 ? "good" : "bad"} />
-        <Stat label="Voided" value={String(s.voidedCount)} tone={s.voidedCount ? "bad" : undefined} />
       </div>
 
       {lowStock.length > 0 && (
@@ -88,7 +90,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <Empty>No sales yet.</Empty>
         ) : (
           s.byStaff.map((x) => (
-            <BarRow key={x.id} label={x.name} sub={`${x.count} orders`} value={x.total} max={maxStaff} right={fmtMoney(x.total)} />
+            <BarRow key={x.id} label={x.name} sub={`${x.count} orders${x.unpaid ? ` · ${fmtMoney(x.unpaid)} unpaid` : ""}`} value={x.total} max={maxStaff} right={fmtMoney(x.total)} />
           ))
         )}
       </Section>
@@ -112,7 +114,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         )}
       </Section>
 
-      <Section title="Payments">
+      <Section title="Paid by">
         <div className="grid grid-cols-3 gap-2 text-center">
           {PAYMENT_METHODS.map((m) => {
             const v = s.byPayment.get(m.key);

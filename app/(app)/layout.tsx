@@ -2,9 +2,11 @@ import { UserButton } from "@clerk/nextjs";
 import { requireStaff } from "@/lib/auth";
 import { APP_NAME } from "@/lib/config";
 import { BottomNav } from "@/components/BottomNav";
+import { getOpenTabCount } from "@/lib/data";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const staff = await requireStaff();
+  const openTabs = await getOpenTabCount().catch(() => 0);
 
   return (
     <div className="mx-auto min-h-dvh max-w-2xl">
@@ -24,7 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </header>
       <main className="pb-nav px-4 pt-4">{children}</main>
-      <BottomNav />
+      <BottomNav openTabs={openTabs} />
     </div>
   );
 }

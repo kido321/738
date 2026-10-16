@@ -8,11 +8,14 @@ A simple point-of-sale app for parties. Track bottles, drinks and hookah sales, 
 
 | Screen | What it does |
 | --- | --- |
-| **Sell** | Tap items to add them, pick Cash / Card / Other, add a tip, done. Every sale is saved under the person who made it. Shows "my sales tonight". |
-| **Dashboard** | Tonight, last night, 7 days, 30 days. Total sales, orders, tips, estimated profit, sales by staff, by category, top items, payment split, low stock alert. |
-| **Audit** | Pick any day. See each person's sales (cash vs card), items sold, every sale with time. Count the cash drawer and close the day. It shows if you are over or short. Void a wrong sale (stock goes back). |
-| **Inventory** | Add / edit items, price and cost. Restock when a delivery comes in. Admin can set a shelf count. Low stock warnings. Stock history. |
+| **Sell** | Tap items to add them. At checkout, tap a price to change it for that customer. Then pick **Pay now** (cash / card / other + tip) or **Tab · pay later** (customer name). You can add more to an open tab. |
+| **Tabs** | Everyone who still owes money. Tap **Collect** when they pay. Tabs from past nights show in red. |
+| **Stats** | Tonight, last night, 7 days, 30 days. Total sales, paid vs unpaid, discounts given, tips, estimated profit, sales by staff, top items, low stock. |
+| **Audit** | Pick any day. Each person's paid and unpaid sales, money collected (cash / card / other), every sale with time. Count the cash drawer and close the day. Void a wrong sale (stock goes back). |
+| **Inventory** | Add / edit items, price, cost and photo. Restock when a delivery comes in. Admin can set a shelf count. Low stock warnings. |
 | **Staff** | Everyone's sales tonight and this week. Admin adds people by email, makes admins, or turns people off. |
+
+**Cash drawer:** the expected cash only counts money actually collected that day. A tab opened Friday and paid Saturday counts in Saturday's drawer.
 
 **Party nights run past midnight.** A sale at 2 AM or 10 AM counts for the night before. The new day starts at 11 AM (change with `NEXT_PUBLIC_BUSINESS_DAY_START_HOUR`).
 
@@ -28,7 +31,8 @@ A simple point-of-sale app for parties. Track bottles, drinks and hookah sales, 
 
 1. Go to [supabase.com](https://supabase.com) and create a new project (or use one you have).
 2. Open **SQL Editor → New query**, paste everything in `supabase/schema.sql`, and click **Run**.
-3. Optional: run `supabase/seed.sql` to add sample items (you can edit or turn them off later).
+3. Run `supabase/738-menu.sql` to add the 738 menu.
+   - Already set up before tabs existed? Run `supabase/update-tabs.sql` once. It is safe to run again.
 4. Go to **Project Settings → API Keys** and copy the **Secret key** (`sb_secret_...`). Also copy your **Project URL**.
 
 ### 2. Clerk

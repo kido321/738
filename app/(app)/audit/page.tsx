@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
-import { getAudit, getProducts, getRecentAudits, getSales, getStaffList, summarize } from "@/lib/data";
+import { byMethod, getAudit, getCollected, getProducts, getRecentAudits, getSales, getStaffList, summarize } from "@/lib/data";
 import { addDays, businessDate, fmtDateTime, fmtDay, fmtMoney, fmtTime, isDateString } from "@/lib/format";
 import { CATEGORIES, paymentLabel } from "@/lib/config";
 import { Empty, PageTitle, Section, Stat } from "@/components/ui";
@@ -12,16 +12,19 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   const { date: raw } = await searchParams;
   const date = isDateString(raw) && raw <= today ? raw : today;
 
-  const [sales, products, staff, audit, recent] = await Promise.all([
+  const [sales, products, staff, audit, recent, collectedSales] = await Promise.all([
     getSales(date, date, { includeVoided: true }),
     getProducts(),
     getStaffList(),
     getAudit(date),
     getRecentAudits(7),
+    getCollected(date),
   ]);
   const s = summarize(sales, products, staff);
   const nameById = new Map(staff.map((x) => [x.id, x.name]));
-  const expectedCash = s.byPayment.get("cash")?.total ?? 0;
+  const collected = byMethod(collectedSales);
+  const fromOldTabs = collectedSales.filter((x) => x.business_date !== date);
+  const expectedCash = collected.cash;
   const closed = !!audit;
 
   return (
@@ -81,11 +84,32 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       <div className="mb-4 grid grid-cols-2 gap-2.5">
         <Stat label="Total sales" value={fmtMoney(s.revenue)} tone="gold" />
         <Stat label="Orders" value={String(s.count)} />
-        <Stat label="Cash" value={fmtMoney(s.byPayment.get("cash")?.total ?? 0)} />
-        <Stat label="Card" value={fmtMoney(s.byPayment.get("card")?.total ?? 0)} />
-        <Stat label="Other" value={fmtMoney(s.byPayment.get("other")?.total ?? 0)} />
+        <Stat label="Paid" value={fmtMoney(s.collected)} tone="good" />
+        <Stat label={`Unpaid tabs (${s.openCount})`} value={fmtMoney(s.unpaid)} tone={s.unpaid ? "bad" : undefined} />
+        <Stat label="Discounts" value={fmtMoney(s.discounts)} />
         <Stat label="Tips" value={fmtMoney(s.tips)} />
       </div>
+
+      <Section title="Money collected this day">
+        <div className="tabular grid grid-cols-3 gap-2 text-center">
+          {[
+            ["Cash", collected.cash],
+            ["Card", collected.card],
+            ["Other", collected.other],
+          ].map(([label, v]) => (
+            <div key={label as string} className="rounded-xl bg-surface-2 p-2.5">
+              <div className="text-xs text-muted">{label}</div>
+              <div className="font-bold">{fmtMoney(v as number)}</div>
+            </div>
+          ))}
+        </div>
+        {fromOldTabs.length > 0 && (
+          <p className="mt-2 text-xs text-muted">
+            Includes {fmtMoney(fromOldTabs.reduce((a, x) => a + x.total, 0))} from {fromOldTabs.length} tab
+            {fromOldTabs.length === 1 ? "" : "s"} opened on an earlier night.
+          </p>
+        )}
+      </Section>
 
       <Section title="Each person's sales">
         {s.byStaff.length === 0 ? (
@@ -97,8 +121,8 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                 <tr>
                   <th className="px-1 pb-2 font-medium">Name</th>
                   <th className="px-1 pb-2 text-right font-medium">Orders</th>
-                  <th className="px-1 pb-2 text-right font-medium">Cash</th>
-                  <th className="px-1 pb-2 text-right font-medium">Card</th>
+                  <th className="px-1 pb-2 text-right font-medium">Paid</th>
+                  <th className="px-1 pb-2 text-right font-medium">Unpaid</th>
                   <th className="px-1 pb-2 text-right font-medium">Total</th>
                 </tr>
               </thead>
@@ -107,8 +131,8 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                   <tr key={x.id}>
                     <td className="px-1 py-2 font-medium">{x.name}</td>
                     <td className="px-1 py-2 text-right">{x.count}</td>
-                    <td className="px-1 py-2 text-right">{fmtMoney(x.cash)}</td>
-                    <td className="px-1 py-2 text-right">{fmtMoney(x.card + x.other)}</td>
+                    <td className="px-1 py-2 text-right">{fmtMoney(x.paid)}</td>
+                    <td className={`px-1 py-2 text-right ${x.unpaid ? "text-warn" : ""}`}>{fmtMoney(x.unpaid)}</td>
                     <td className="px-1 py-2 text-right font-semibold">{fmtMoney(x.total)}</td>
                   </tr>
                 ))}
@@ -130,7 +154,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                 <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gold">{c.label}</div>
                 <ul className="tabular divide-y divide-line text-sm">
                   {items.map((i) => (
-                    <li key={i.name} className="flex justify-between py-1.5">
+                    <li key={`${i.category}|${i.name}`} className="flex justify-between py-1.5">
                       <span>
                         {i.name} <span className="text-muted">× {i.qty}</span>
                       </span>
@@ -145,6 +169,12 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       </Section>
 
       <Section title={closed ? "Cash count" : "Close the day"}>
+        {s.openCount > 0 && (
+          <Link href="/tabs" className="mb-3 block rounded-xl bg-warn/15 px-3 py-2 text-sm text-warn">
+            {s.openCount} tab{s.openCount === 1 ? " is" : "s are"} still unpaid ({fmtMoney(s.unpaid)}). That money is not in
+            the drawer yet. Tap to collect.
+          </Link>
+        )}
         <CloseDayForm date={date} expectedCash={expectedCash} closed={closed} />
       </Section>
 
@@ -161,16 +191,35 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                     <div className="min-w-0">
                       <div className="text-sm font-semibold">
                         {fmtTime(sale.created_at)} · {nameById.get(sale.staff_id) ?? "Unknown"}
-                        <span className="ml-2 rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-muted">
-                          {paymentLabel(sale.payment_method)}
-                        </span>
+                        {sale.status === "open" ? (
+                          <span className="ml-2 rounded-md bg-warn/20 px-1.5 py-0.5 text-[11px] font-semibold text-warn">
+                            UNPAID TAB
+                          </span>
+                        ) : (
+                          <span className="ml-2 rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-muted">
+                            {paymentLabel(sale.payment_method ?? "")}
+                          </span>
+                        )}
                         {sale.voided && (
                           <span className="ml-1 rounded-md bg-bad/20 px-1.5 py-0.5 text-[11px] font-medium text-bad">VOID</span>
                         )}
                       </div>
+                      {sale.customer_name && <div className="text-sm font-medium text-ink/90">{sale.customer_name}</div>}
                       <div className="mt-0.5 text-sm text-muted">
-                        {sale.sale_items.map((i) => `${i.qty}× ${i.name}`).join(", ")}
+                        {sale.sale_items
+                          .map(
+                            (i) =>
+                              `${i.qty}× ${i.name}${
+                                i.list_price != null && i.list_price !== i.unit_price ? ` @ ${fmtMoney(i.unit_price)}` : ""
+                              }`
+                          )
+                          .join(", ")}
                       </div>
+                      {sale.status === "paid" &&
+                        sale.paid_at &&
+                        new Date(sale.paid_at).getTime() - new Date(sale.created_at).getTime() > 60_000 && (
+                          <div className="mt-0.5 text-xs text-good">Tab paid · {fmtDateTime(sale.paid_at)}</div>
+                        )}
                       {sale.note && <div className="mt-0.5 text-xs text-ink/70">Note: {sale.note}</div>}
                     </div>
                     <div className="shrink-0 text-right">

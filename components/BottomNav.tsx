@@ -5,17 +5,18 @@ import { usePathname } from "next/navigation";
 
 const tabs = [
   { href: "/", label: "Sell", icon: SellIcon },
-  { href: "/dashboard", label: "Dashboard", icon: ChartIcon },
+  { href: "/tabs", label: "Tabs", icon: TabIcon },
+  { href: "/dashboard", label: "Stats", icon: ChartIcon },
   { href: "/audit", label: "Audit", icon: AuditIcon },
   { href: "/inventory", label: "Inventory", icon: BoxIcon },
   { href: "/staff", label: "Staff", icon: StaffIcon },
 ];
 
-export function BottomNav() {
+export function BottomNav({ openTabs = 0 }: { openTabs?: number }) {
   const path = usePathname();
   return (
     <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 backdrop-blur">
-      <ul className="mx-auto grid max-w-2xl grid-cols-5">
+      <ul className="mx-auto grid max-w-2xl grid-cols-6">
         {tabs.map((t) => {
           const active = t.href === "/" ? path === "/" : path.startsWith(t.href);
           const Icon = t.icon;
@@ -23,12 +24,17 @@ export function BottomNav() {
             <li key={t.href}>
               <Link
                 href={t.href}
-                className={`flex flex-col items-center gap-0.5 pt-2 pb-1 text-[11px] font-medium ${
+                className={`relative flex flex-col items-center gap-0.5 pt-2 pb-1 text-[10px] font-medium ${
                   active ? "text-gold" : "text-muted"
                 }`}
               >
                 <Icon />
                 {t.label}
+                {t.href === "/tabs" && openTabs > 0 && (
+                  <span className="absolute top-1 left-1/2 ml-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-warn px-1 text-[10px] font-bold text-black">
+                    {openTabs}
+                  </span>
+                )}
               </Link>
             </li>
           );
@@ -54,6 +60,14 @@ function SellIcon() {
     <svg {...svg}>
       <path d="M8 3h8l-1 6a3 3 0 0 1-6 0L8 3Z" />
       <path d="M12 12v8M8 21h8" />
+    </svg>
+  );
+}
+function TabIcon() {
+  return (
+    <svg {...svg}>
+      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" />
+      <path d="M9 8h6M9 12h6" />
     </svg>
   );
 }

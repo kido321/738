@@ -4,7 +4,15 @@ import { addDays, toNum } from "./format";
 import type { DayAudit, Product, Sale, Staff, StockMovement } from "./types";
 
 const SALE_SELECT =
-  "id, staff_id, business_date, payment_method, subtotal, tip, total, note, voided, voided_by, voided_at, created_at, sale_items(product_id, name, category, unit_price, qty, line_total)";
+  "id, staff_id, business_date, status, payment_method, customer_name, paid_at, paid_by, paid_date, subtotal, tip, total, note, voided, voided_by, voided_at, created_at, sale_items(product_id, name, category, unit_price, list_price, qty, line_total)";
+
+// Turn "column does not exist" into a clear next step.
+function fail(message: string): never {
+  if (/does not exist|schema cache/i.test(message) && /status|customer_name|paid_|list_price/i.test(message)) {
+    throw new Error("The database needs the tabs update. Run supabase/update-tabs.sql in the Supabase SQL Editor.");
+  }
+  throw new Error(message);
+}
 
 function cleanSale(s: Sale): Sale {
   return {
@@ -15,6 +23,7 @@ function cleanSale(s: Sale): Sale {
     sale_items: (s.sale_items ?? []).map((i) => ({
       ...i,
       unit_price: toNum(i.unit_price),
+      list_price: i.list_price == null ? null : toNum(i.list_price),
       line_total: toNum(i.line_total),
     })),
   };
@@ -39,11 +48,64 @@ export async function getSales(
     if (!opts.includeVoided) q = q.eq("voided", false);
     if (opts.staffId) q = q.eq("staff_id", opts.staffId);
     const { data, error } = await q;
-    if (error) throw new Error(error.message);
+    if (error) fail(error.message);
     out.push(...((data ?? []) as unknown as Sale[]).map(cleanSale));
     if (!data || data.length < page) break;
   }
   return out;
+}
+
+// Every open tab (not paid yet), oldest first.
+export async function getOpenTabs(): Promise<Sale[]> {
+  const { data, error } = await db()
+    .from("sales")
+    .select(SALE_SELECT)
+    .eq("status", "open")
+    .eq("voided", false)
+    .order("created_at", { ascending: true });
+  if (error) fail(error.message);
+  return ((data ?? []) as unknown as Sale[]).map(cleanSale);
+}
+
+export async function getOpenTabCount(): Promise<number> {
+  const { count } = await db()
+    .from("sales")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "open")
+    .eq("voided", false);
+  return count ?? 0;
+}
+
+// Money actually collected on a business day (includes old tabs paid that day).
+export async function getCollected(date: string): Promise<Sale[]> {
+  const { data, error } = await db()
+    .from("sales")
+    .select(SALE_SELECT)
+    .eq("status", "paid")
+    .eq("voided", false)
+    .eq("paid_date", date)
+    .order("paid_at", { ascending: false });
+  if (error) fail(error.message);
+  return ((data ?? []) as unknown as Sale[]).map(cleanSale);
+}
+
+export function byMethod(sales: Sale[]) {
+  const out = { cash: 0, card: 0, other: 0, tips: 0, count: sales.length, total: 0 };
+  for (const s of sales) {
+    if (s.payment_method === "cash") out.cash += s.total;
+    else if (s.payment_method === "card") out.card += s.total;
+    else out.other += s.total;
+    out.tips += s.tip;
+    out.total += s.total;
+  }
+  return {
+    ...out,
+    cash: toNum(out.cash),
+    card: toNum(out.card),
+    other: toNum(out.other),
+    tips: toNum(out.tips),
+    total: toNum(out.total),
+  };
 }
 
 export async function getProducts(opts: { activeOnly?: boolean } = {}): Promise<Product[]> {
@@ -113,39 +175,51 @@ export function summarize(sales: Sale[], products: Product[], staff: Staff[]) {
   let subtotal = 0;
   let tips = 0;
   let cost = 0;
-  const byStaff = new Map<string, { id: string; name: string; count: number; total: number; cash: number; card: number; other: number; tips: number }>();
+  let collected = 0;
+  let unpaid = 0;
+  let openCount = 0;
+  let discounts = 0;
+  type StaffRow = { id: string; name: string; count: number; total: number; paid: number; unpaid: number; tips: number };
+  const byStaff = new Map<string, StaffRow>();
   const byPayment = new Map<string, { count: number; total: number }>();
   const byCategory = new Map<string, { qty: number; total: number }>();
   const byItem = new Map<string, { name: string; category: string; qty: number; total: number }>();
   const byDay = new Map<string, number>();
 
   for (const s of live) {
+    const isOpen = s.status === "open";
     revenue += s.total;
     subtotal += s.subtotal;
     tips += s.tip;
+    if (isOpen) {
+      unpaid += s.total;
+      openCount += 1;
+    } else {
+      collected += s.total;
+    }
 
     const st = byStaff.get(s.staff_id) ?? {
       id: s.staff_id,
       name: nameById.get(s.staff_id) ?? "Unknown",
       count: 0,
       total: 0,
-      cash: 0,
-      card: 0,
-      other: 0,
+      paid: 0,
+      unpaid: 0,
       tips: 0,
     };
     st.count += 1;
     st.total += s.total;
     st.tips += s.tip;
-    if (s.payment_method === "cash") st.cash += s.total;
-    else if (s.payment_method === "card") st.card += s.total;
-    else st.other += s.total;
+    if (isOpen) st.unpaid += s.total;
+    else st.paid += s.total;
     byStaff.set(s.staff_id, st);
 
-    const pm = byPayment.get(s.payment_method) ?? { count: 0, total: 0 };
-    pm.count += 1;
-    pm.total += s.total;
-    byPayment.set(s.payment_method, pm);
+    if (!isOpen && s.payment_method) {
+      const pm = byPayment.get(s.payment_method) ?? { count: 0, total: 0 };
+      pm.count += 1;
+      pm.total += s.total;
+      byPayment.set(s.payment_method, pm);
+    }
 
     byDay.set(s.business_date, (byDay.get(s.business_date) ?? 0) + s.total);
 
@@ -161,6 +235,9 @@ export function summarize(sales: Sale[], products: Product[], staff: Staff[]) {
       it.total += i.line_total;
       byItem.set(key, it);
 
+      if (i.list_price != null && i.list_price > i.unit_price) {
+        discounts += (i.list_price - i.unit_price) * i.qty;
+      }
       if (i.product_id) cost += (costById.get(i.product_id) ?? 0) * i.qty;
     }
   }
@@ -171,6 +248,10 @@ export function summarize(sales: Sale[], products: Product[], staff: Staff[]) {
     revenue: toNum(revenue),
     subtotal: toNum(subtotal),
     tips: toNum(tips),
+    collected: toNum(collected),
+    unpaid: toNum(unpaid),
+    openCount,
+    discounts: toNum(discounts),
     avg: live.length ? toNum(revenue / live.length) : 0,
     estProfit: toNum(subtotal - cost),
     byStaff: [...byStaff.values()].sort((a, b) => b.total - a.total),

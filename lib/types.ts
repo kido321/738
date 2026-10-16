@@ -26,6 +26,7 @@ export type SaleItem = {
   name: string;
   category: string;
   unit_price: number;
+  list_price: number | null;
   qty: number;
   line_total: number;
 };
@@ -34,7 +35,12 @@ export type Sale = {
   id: string;
   staff_id: string;
   business_date: string;
-  payment_method: string;
+  status: "paid" | "open";
+  payment_method: string | null;
+  customer_name: string | null;
+  paid_at: string | null;
+  paid_by: string | null;
+  paid_date: string | null;
   subtotal: number;
   tip: number;
   total: number;
