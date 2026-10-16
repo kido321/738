@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { changeStock, saveProduct, setProductActive } from "@/app/actions";
+import { changeStock, removeProductImage, saveProduct, setProductActive, uploadProductImage } from "@/app/actions";
+import { ItemPhoto } from "@/components/ItemPhoto";
 import { CATEGORIES } from "@/lib/config";
 import { fmtMoney } from "@/lib/format";
 import type { Product } from "@/lib/types";
@@ -49,6 +50,7 @@ export function InventoryClient({ products, isAdmin }: { products: Product[]; is
                 const low = p.track_stock && p.stock <= p.low_stock_at;
                 return (
                   <li key={p.id} className="flex items-center gap-3 py-3">
+                    <ItemPhoto url={p.image_url} category={p.category} name={p.name} className="h-12 w-12 shrink-0 rounded-xl" />
                     <div className="min-w-0 flex-1">
                       <div className="font-medium">{p.name}</div>
                       <div className="tabular text-xs text-muted">
@@ -130,6 +132,11 @@ function ProductForm({ product, onDone }: { product: Product | null; onDone: () 
       }}
     >
       <h2 className="text-lg font-bold">{isNew ? "Add item" : `Edit ${product.name}`}</h2>
+      {product ? (
+        <PhotoPicker product={product} />
+      ) : (
+        <p className="text-xs text-muted">You can add a photo after you save the item.</p>
+      )}
       <input type="hidden" name="id" value={product?.id ?? ""} />
       <div>
         <label className="label">Name</label>
@@ -257,5 +264,81 @@ function StockForm({ product, isAdmin, onDone }: { product: Product; isAdmin: bo
         </button>
       </div>
     </form>
+  );
+}
+
+// Shrinks a phone photo to a small square-ish JPEG before upload.
+async function shrinkPhoto(file: File, max = 800): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not read photo"))), "image/jpeg", 0.82)
+  );
+}
+
+function PhotoPicker({ product }: { product: Product }) {
+  const router = useRouter();
+  const [preview, setPreview] = useState<string | null>(product.image_url);
+  const [error, setError] = useState("");
+  const [pending, start] = useTransition();
+
+  function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError("");
+    start(async () => {
+      try {
+        const small = await shrinkPhoto(file);
+        setPreview(URL.createObjectURL(small));
+        const form = new FormData();
+        form.set("id", product.id);
+        form.set("file", new File([small], "photo.jpg", { type: "image/jpeg" }));
+        const res = await uploadProductImage(form);
+        if (!res.ok) {
+          setError(res.error);
+          setPreview(product.image_url);
+          return;
+        }
+        router.refresh();
+      } catch {
+        setError("Could not use that photo. Try another one.");
+        setPreview(product.image_url);
+      }
+    });
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <ItemPhoto url={preview} category={product.category} name={product.name} className="h-20 w-20 shrink-0 rounded-2xl" />
+      <div className="flex flex-col items-start gap-1.5">
+        <label className={`btn-ghost cursor-pointer py-2 text-sm ${pending ? "pointer-events-none opacity-50" : ""}`}>
+          {pending ? "Uploading..." : preview ? "Change photo" : "Add photo"}
+          <input type="file" accept="image/*" className="hidden" onChange={pick} disabled={pending} />
+        </label>
+        {preview && !pending && (
+          <button
+            type="button"
+            className="text-xs font-semibold text-bad"
+            onClick={() =>
+              start(async () => {
+                const res = await removeProductImage(product.id);
+                if (!res.ok) return setError(res.error);
+                setPreview(null);
+                router.refresh();
+              })
+            }
+          >
+            Remove photo
+          </button>
+        )}
+        {error && <p className="text-xs text-bad">{error}</p>}
+      </div>
+    </div>
   );
 }

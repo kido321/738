@@ -1,4 +1,4 @@
-export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Party POS";
+export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "738 Afties";
 
 export const CATEGORIES = [
   { key: "bottle", label: "Bottles" },

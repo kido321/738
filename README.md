@@ -1,4 +1,4 @@
-# Party POS
+# 738 Afties
 
 A simple point-of-sale app for parties. Track bottles, drinks and hookah sales, see who sold what, count the cash at the end of the night, and keep stock up to date. Built for iPhone (add it to your Home Screen) and for a small team of 4.
 

@@ -27,6 +27,7 @@ create table if not exists public.products (
   low_stock_at integer not null default 3,
   track_stock boolean not null default true,
   active boolean not null default true,
+  image_url text,
   created_at timestamptz not null default now()
 );
 
@@ -234,3 +235,8 @@ revoke execute on function public.create_sale(uuid, date, text, numeric, text, j
 revoke execute on function public.void_sale(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.create_sale(uuid, date, text, numeric, text, jsonb) to service_role;
 grant execute on function public.void_sale(uuid, uuid) to service_role;
+
+-- Item photos (public bucket, uploads only happen from the server)
+insert into storage.buckets (id, name, public)
+values ('product-images', 'product-images', true)
+on conflict (id) do nothing;

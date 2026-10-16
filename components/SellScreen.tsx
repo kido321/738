@@ -7,6 +7,7 @@ import { createSale } from "@/app/actions";
 import { CATEGORIES, PAYMENT_METHODS, type PaymentMethod } from "@/lib/config";
 import { fmtMoney, toNum } from "@/lib/format";
 import type { Product } from "@/lib/types";
+import { ItemPhoto } from "@/components/ItemPhoto";
 
 type Cart = Record<string, number>;
 
@@ -113,11 +114,13 @@ export function SellScreen({ products }: { products: Product[] }) {
             <button
               key={p.id}
               onClick={() => add(p.id)}
-              className={`relative flex min-h-24 flex-col justify-between rounded-2xl border p-3 text-left transition active:scale-[0.97] ${
+              className={`relative flex flex-col overflow-hidden rounded-2xl border text-left transition active:scale-[0.97] ${
                 inCart ? "border-gold bg-gold/10" : "border-line bg-surface"
               }`}
             >
-              <span className="pr-6 font-semibold leading-snug">{p.name}</span>
+              <ItemPhoto url={p.image_url} category={p.category} name={p.name} className="aspect-[4/3] w-full" />
+              <span className="flex flex-1 flex-col justify-between p-3">
+              <span className="pr-1 font-semibold leading-snug">{p.name}</span>
               <span className="mt-2 flex items-end justify-between">
                 <span className="tabular text-lg font-bold text-gold">{fmtMoney(p.price)}</span>
                 {left !== null && (
@@ -126,8 +129,9 @@ export function SellScreen({ products }: { products: Product[] }) {
                   </span>
                 )}
               </span>
+              </span>
               {inCart > 0 && (
-                <span className="absolute top-2 right-2 grid h-6 min-w-6 place-items-center rounded-full bg-gold px-1.5 text-xs font-bold text-gold-ink">
+                <span className="absolute top-2 right-2 grid h-7 min-w-7 shadow-md shadow-black/40 place-items-center rounded-full bg-gold px-1.5 text-xs font-bold text-gold-ink">
                   {inCart}
                 </span>
               )}

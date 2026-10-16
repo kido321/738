@@ -247,3 +247,69 @@ export async function updateStaff(
   refresh();
   return { ok: true };
 }
+
+// ---------- Item photos ----------
+
+const PHOTO_BUCKET = "product-images";
+
+export async function uploadProductImage(form: FormData): Promise<Result> {
+  await requireAdmin();
+  const id = text(form, "id");
+  const file = form.get("file");
+  if (!id) return { ok: false, error: "Item not found." };
+  if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Pick a photo." };
+  if (!file.type.startsWith("image/")) return { ok: false, error: "That file is not a photo." };
+  if (file.size > 900_000) return { ok: false, error: "Photo is too big. Try another one." };
+
+  const sb = db();
+  const { data: product } = await sb.from("products").select("id, image_url").eq("id", id).maybeSingle();
+  if (!product) return { ok: false, error: "Item not found." };
+
+  const path = `${id}/${Date.now()}.jpg`;
+  const { error: upErr } = await sb.storage
+    .from(PHOTO_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: true });
+  if (upErr) {
+    return {
+      ok: false,
+      error: /bucket/i.test(upErr.message)
+        ? "Photo storage is not set up. Run supabase/738-menu.sql in Supabase."
+        : upErr.message,
+    };
+  }
+  const url = sb.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
+
+  const { error } = await sb.from("products").update({ image_url: url }).eq("id", id);
+  if (error) {
+    return {
+      ok: false,
+      error: /image_url/.test(error.message)
+        ? "Photos are not set up. Run supabase/738-menu.sql in Supabase."
+        : error.message,
+    };
+  }
+
+  await removeStoredPhoto(product.image_url);
+  refresh();
+  return { ok: true };
+}
+
+export async function removeProductImage(id: string): Promise<Result> {
+  await requireAdmin();
+  const sb = db();
+  const { data: product } = await sb.from("products").select("image_url").eq("id", id).maybeSingle();
+  if (!product) return { ok: false, error: "Item not found." };
+  const { error } = await sb.from("products").update({ image_url: null }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  await removeStoredPhoto(product.image_url);
+  refresh();
+  return { ok: true };
+}
+
+async function removeStoredPhoto(url: string | null) {
+  if (!url) return;
+  const marker = `/object/public/${PHOTO_BUCKET}/`;
+  const at = url.indexOf(marker);
+  if (at === -1) return;
+  await db().storage.from(PHOTO_BUCKET).remove([url.slice(at + marker.length)]);
+}

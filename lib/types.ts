@@ -18,6 +18,7 @@ export type Product = {
   low_stock_at: number;
   track_stock: boolean;
   active: boolean;
+  image_url: string | null;
 };
 
 export type SaleItem = {
